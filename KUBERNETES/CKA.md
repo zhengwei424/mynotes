@@ -367,3 +367,180 @@ password
 [root@master ~]# kubectl exec nginx -n test -- cat /etc/foo/password
 mypass
 ```
+11. Create a deployment named hr-app using the image nginx:1.18 with 2 replicas.(创建一个使用nginx:1.18镜像名叫hr-app的deployment，设置副本数为2)
+```shell
+[root@master ~]# kubectl create deployment hr-app --image=nginx:1.18 --replicas=2 -n test
+deployment.apps/hr-app created
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox-echo              0/1     Completed   0          22h
+hr-app-844c498b44-5rbbp   1/1     Running     0          27s
+hr-app-844c498b44-rlwkv   1/1     Running     0          28s
+messaging                 1/1     Running     0          22h
+nginx                     1/1     Running     0          11h
+nginx-cm                  1/1     Running     0          12h
+nginx-opt                 1/1     Running     0          21h
+nginx-sec                 1/1     Running     0          12h
+nginx-test                1/1     Running     0          21h
+nginx1                    1/1     Running     0          24h
+nginx2                    1/1     Running     0          24h
+[root@master ~]# kubectl get deploy -n test
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+hr-app   2/2     2            2           29s
+```
+
+12. Scale hr-app deployment to 3 replicas.(滚动hr-app这个deployment到3副本)
+```shell
+[root@master ~]# kubectl scale --replicas=3 deployment -n test hr-app
+deployment.apps/hr-app scaled
+[root@master ~]# kubectl get deploy -n test hr-app
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+hr-app   3/3     3            3           5m36s
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox-echo              0/1     Completed   0          22h
+hr-app-844c498b44-5rbbp   1/1     Running     0          5m44s
+hr-app-844c498b44-lmmkx   1/1     Running     0          45s
+hr-app-844c498b44-rlwkv   1/1     Running     0          5m45s
+messaging                 1/1     Running     0          22h
+nginx                     1/1     Running     0          11h
+nginx-cm                  1/1     Running     0          12h
+nginx-opt                 1/1     Running     0          21h
+nginx-sec                 1/1     Running     0          12h
+nginx-test                1/1     Running     0          21h
+nginx1                    1/1     Running     0          24h
+nginx2                    1/1     Running     0          24h
+```
+
+13. Update the hr-app image to nginx:1.19.(升级hr-app的镜像到nginx:1.19)
+```shell
+[root@master ~]# kubectl set image  deploy -n test hr-app nginx=nginx:1.19 --record
+deployment.apps/hr-app image updated
+```
+14. Check the rollout history of hr-app and confirm that the replicas are OK.(检查rollout历史，确认副本已经滚动完成)
+```shell
+[root@master ~]# kubectl rollout history deployment hr-app -n test
+deployment.apps/hr-app
+REVISION  CHANGE-CAUSE
+1         <none>
+2         kubectl set image deploy hr-app nginx=nginx:1.19 --namespace=test --record=true
+[root@master ~]# kubectl get deploy -n test hr-app
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+hr-app   3/3     3            3           13m
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox-echo              0/1     Completed   0          22h
+hr-app-7996699d47-ncbjc   1/1     Running     0          3m56s
+hr-app-7996699d47-nhh6z   1/1     Running     0          4m27s
+hr-app-7996699d47-zgbvc   1/1     Running     0          3m59s
+messaging                 1/1     Running     0          22h
+nginx                     1/1     Running     0          12h
+nginx-cm                  1/1     Running     0          12h
+nginx-opt                 1/1     Running     0          21h
+nginx-sec                 1/1     Running     0          12h
+nginx-test                1/1     Running     0          22h
+nginx1                    1/1     Running     0          24h
+nginx2                    1/1     Running     0          24h
+[root@master ~]# kubectl get pod  -n test hr-app-7996699d47-ncbjc -o jsonpath="{.spec.containers[0].image}"
+nginx:1.19
+```
+
+15. Undo the latest rollout and verify that new pods have the old image (nginx:1.18)(重新回滚至老版本的nginx:1.18)
+```shell
+[root@master ~]# kubectl rollout history deployment -n test hr-app
+deployment.apps/hr-app
+REVISION  CHANGE-CAUSE
+1         <none>
+2         kubectl set image deploy hr-app nginx=nginx:1.19 --namespace=test --record=true
+[root@master ~]# kubectl rollout undo deployment -n test hr-app --to-revision 1
+deployment.apps/hr-app rolled back
+[root@master ~]# kubectl rollout history deployment -n test hr-app
+deployment.apps/hr-app
+REVISION  CHANGE-CAUSE
+2         kubectl set image deploy hr-app nginx=nginx:1.19 --namespace=test --record=true
+3         <none>
+[root@master ~]# kubectl get deployments.apps -n test hr-app
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+hr-app   3/3     3            3           21m
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox-echo              0/1     Completed   0          22h
+hr-app-844c498b44-mlvzs   1/1     Running     0          119s
+hr-app-844c498b44-rpr4w   1/1     Running     0          2m1s
+hr-app-844c498b44-wb4j5   1/1     Running     0          2m3s
+messaging                 1/1     Running     0          22h
+nginx                     1/1     Running     0          12h
+nginx-cm                  1/1     Running     0          12h
+nginx-opt                 1/1     Running     0          21h
+nginx-sec                 1/1     Running     0          12h
+nginx-test                1/1     Running     0          22h
+nginx1                    1/1     Running     0          24h
+nginx2                    1/1     Running     0          24h
+[root@master ~]# kubectl get pod -n test hr-app-844c498b44-mlvzs -ojsonpath="{.spec.containers[0].image}"
+nginx:1.18
+```
+
+16. Do an update of the deployment with a wrong image nginx:1.91 and check the status.(滚动升级至image版本至nginx:1.91，检查副本状态)
+```shell
+[root@master ~]# kubectl set image deploy -n test hr-app nginx=nginx:1.91 --record
+deployment.apps/hr-app image updated
+[root@master ~]# kubectl rollout history
+error: required resource not specified
+[root@master ~]# kubectl rollout history deployment -n test hr-app
+deployment.apps/hr-app
+REVISION  CHANGE-CAUSE
+2         kubectl set image deploy hr-app nginx=nginx:1.19 --namespace=test --record=true
+3         <none>
+4         kubectl set image deploy hr-app nginx=nginx:1.91 --namespace=test --record=true
+[root@master ~]# kubectl get deployments.apps -n test hr-app
+NAME     READY   UP-TO-DATE   AVAILABLE   AGE
+hr-app   3/3     1            3           25m
+[root@master ~]#
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS         RESTARTS   AGE
+busybox-echo              0/1     Completed      0          22h
+hr-app-65d75d95b7-wzr72   0/1     ErrImagePull   0          46s
+hr-app-844c498b44-mlvzs   1/1     Running        0          6m20s
+hr-app-844c498b44-rpr4w   1/1     Running        0          6m22s
+hr-app-844c498b44-wb4j5   1/1     Running        0          6m24s
+messaging                 1/1     Running        0          23h
+nginx                     1/1     Running        0          12h
+nginx-cm                  1/1     Running        0          12h
+nginx-opt                 1/1     Running        0          22h
+nginx-sec                 1/1     Running        0          12h
+nginx-test                1/1     Running        0          22h
+nginx1                    1/1     Running        0          24h
+nginx2                    1/1     Running        0          24h
+[root@master ~]# kubectl get pod -n test hr-app-65d75d95b7-wzr72 -ojsonpath="{.spec.containers[0].image}"
+nginx:1.91
+```
+
+17. Return the deployment to working state and verify the image is nginx:1.19.(回滚至运行正常的版本：nginx:1.19)
+```shell
+[root@master ~]# kubectl rollout history  deployment  -n test hr-app
+deployment.apps/hr-app
+REVISION  CHANGE-CAUSE
+2         kubectl set image deploy hr-app nginx=nginx:1.19 --namespace=test --record=true
+3         <none>
+4         kubectl set image deploy hr-app nginx=nginx:1.91 --namespace=test --record=true
+[root@master ~]#
+[root@master ~]# kubectl rollout undo deployment -n test hr-app --to-revision 2
+deployment.apps/hr-app rolled back
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox-echo              0/1     Completed   0          22h
+hr-app-7996699d47-dftg8   1/1     Running     0          23s
+hr-app-7996699d47-k2m96   1/1     Running     0          25s
+hr-app-7996699d47-z7f9x   1/1     Running     0          20s
+messaging                 1/1     Running     0          23h
+nginx                     1/1     Running     0          12h
+nginx-cm                  1/1     Running     0          12h
+nginx-opt                 1/1     Running     0          22h
+nginx-sec                 1/1     Running     0          12h
+nginx-test                1/1     Running     0          22h
+nginx1                    1/1     Running     0          24h
+nginx2                    1/1     Running     0          24h
+[root@master ~]# kubectl get pod -n test -o jsonpath="{.spec.containers[0].image}"
+[root@master ~]# kubectl get pod -n test hr-app-7996699d47-dftg8  -o jsonpath="{.spec.containers[0].image}"
+nginx:1.19
+```
