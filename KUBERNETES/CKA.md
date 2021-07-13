@@ -695,8 +695,67 @@ operator:x:37:37:Operator:/var:/bin/false
 nobody:x:65534:65534:nobody:/home:/bin/false
 ```
 
-Create a pod with image nginx called nginx-1 and expose its port 80.(创建一个叫nginx-1的 nginx pod，并暴露80端口。)
+20. Create a pod with image nginx called nginx-1 and expose its port 80.(创建一个叫nginx-1的 nginx pod，并暴露80端口。)
+```bash
+[root@master ~]# kubectl run nginx-1 --image=nginx -n test --port=80 --expose
+service/nginx-1 created
+pod/nginx-1 created
+[root@master ~]# kubectl get all -n test
+NAME          READY   STATUS    RESTARTS   AGE
+pod/nginx-1   1/1     Running   0          8s
+NAME              TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/nginx-1   ClusterIP   10.98.225.136   <none>        80/TCP    8s
+```
 
-Get service's ClusterIP, create a temp busybox-1 pod and 'hit' that IP with wget.(拿到那个svc的clusterip，创建一个临时的busybox-1的pod，并wget那个ip)
-
-Convert the ClusterIP to NodePort for the same service and find the NodePort. Hit the service(create temp busybox pod) using Node's IP and Port.(转换clusterip到nodeport并找到那个nodeport。)
+21. Get service's ClusterIP, create a temp busybox-1 pod and 'hit' that IP with wget.(拿到那个svc的clusterip，创建一个临时的busybox-1的pod，并wget那个ip)
+```bash
+[root@master ~]# kubectl run busybox-1 --image=busybox -i --restart=Never --rm  -n test  -- /bin/sh -c "wget 10.98.225.136"
+Connecting to 10.98.225.136 (10.98.225.136:80)
+saving to 'index.html'
+index.html           100% |********************************|   612  0:00:00 ETA
+'index.html' saved
+pod "busybox-1" deleted
+```
+22. Convert the ClusterIP to NodePort for the same service and find the NodePort. Hit the service(create temp busybox pod) using Node's IP and Port.(转换clusterip到nodeport并找到那个nodeport。)
+- 修改svc的配置
+```yaml
+[root@master ~]# kubectl edit svc -n test nginx-1
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2021-07-13T09:38:06Z"
+  name: nginx-1
+  namespace: test
+  resourceVersion: "694711"
+  uid: cd999581-e2ce-45c3-bea4-d4ce95958c9b
+spec:
+  clusterIP: 10.98.225.136
+  clusterIPs:
+  - 10.98.225.136
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    run: nginx-1
+  sessionAffinity: None
+  type: NodePort
+status:
+  loadBalancer: {}
+```
+- 通过nodeIP和nodePort访问nginx
+```bash
+[root@master ~]# kubectl run busybox --image=busybox --restart=Never -i --rm -n test  -- /bin/sh -c "wget 192.168.10.81:30678"
+Connecting to 192.168.10.81:30678 (192.168.10.81:30678)
+saving to 'index.html'
+index.html           100% |********************************|   612  0:00:00 ETA
+'index.html' saved
+pod "busybox" deleted
+```
