@@ -544,3 +544,159 @@ nginx2                    1/1     Running     0          24h
 [root@master ~]# kubectl get pod -n test hr-app-7996699d47-dftg8  -o jsonpath="{.spec.containers[0].image}"
 nginx:1.19
 ```
+18. Create a PersistentVolume of 1Gi, called 'myvolume-practice'. Make it have accessMode of 'ReadWriteOnce' and 'ReadWriteMany', storageClassName 'normal', mounted on hostPath '/etc/foo'. List all PersistentVolume。(创建一个叫myvolume-practice的pv，1Gi容量，有两个访问模式 'ReadWriteOnce' 和 'ReadWriteMany'， sc名字为“normal”，并通过/etc/foo中。查看所有pv。)
+- 创建storageClass的yaml
+```yaml
+[root@master ~]# cat sc-normal.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: normal
+  namespace: test
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsume
+```
+- 创建local类型的storageClass
+```shell
+[root@master ~]# kubectl apply -f sc-normal.yaml
+storageclass.storage.k8s.io/normal created
+[root@master ~]# kubectl get sc -n test
+NAME     PROVISIONER                    RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+normal   kubernetes.io/no-provisioner   Delete          WaitForFirstConsumer   false                  7s
+```
+- 创建myvolume-practice.yaml
+```yaml
+[root@master ~]# cat myvolume-practice.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: myvolume-practice
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: normal
+  local:
+    path: /etc/foo
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: pv
+          operator: In
+          values:
+          - test
+```
+- 创建pv
+```shell
+[root@master ~]# kubectl apply -f  myvolume-practice.yaml
+persistentvolume/myvolume-practice created
+[root@master ~]# kubectl get pv
+NAME                CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   REASON   AGE
+myvolume-practice   1Gi        RWO,RWX        Delete           Available           normal                  27s
+```
+18. Create a PersistentVolumeClaim called 'mypvc-practice' requesting 400Mi with accessMode of 'ReadWriteOnce' and storageClassName of normal. Check the status of the PersistenVolume.(创建一个PVC叫 'mypvc-practice'，400MB，accessMode：'ReadWriteOnce'，sc：normal，检查pvc状态)
+- 创建mypvc-practice.yaml
+```yaml
+[root@master ~]# cat mypvc-practice.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mypvc-practice
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 400Mi
+  storageClassName: normal
+#  selector:
+#    matchLabels:
+#      release: "stable"
+```
+- 创建pvc
+```shell
+[root@master ~]# kubectl apply -f mypvc-practice.yaml  -n test
+persistentvolumeclaim/mypvc-practice created
+[root@master ~]# kubectl get pvc -n test
+NAME             STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mypvc-practice   Pending                                      normal         9s
+```
+19. Create a busybox pod with command 'sleep 3600'. Mount the PersistentVolumeClaim mypvc-practice to '/etc/foo'. Connect to the 'busybox' pod, and copy the '/etc/passwd' file to '/etc/foo/passwd'.(创建一个busybox的pod，使用 'sleep 3600' 命令，把这个pvc mount到'/etc/foo'中，进入这个pod，copy '/etc/passwd' file to '/etc/foo/passwd')
+- 创建busybox.yaml
+```yaml
+[root@master ~]# cat busybox.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: busybox
+  name: busybox
+  namespace: test
+spec:
+  volumes:
+  - name: test
+    persistentVolumeClaim:
+      claimName: mypvc-practice
+  containers:
+  - args:
+    - /bin/sh
+    - -c
+    - sleep 3600
+    image: busybox
+    name: busybox
+    volumeMounts:
+    - name: test
+      mountPath: /etc/foo/
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+```
+- 创建pod
+```shell
+[root@master ~]# kubectl apply -f busybox.yaml -n test
+pod/busybox created
+[root@master ~]# kubectl get pod -n test
+NAME                      READY   STATUS      RESTARTS   AGE
+busybox                   1/1     Running     0          10s
+busybox-echo              0/1     Completed   0          5d2h
+hr-app-7996699d47-dftg8   1/1     Running     1          4d4h
+hr-app-7996699d47-k2m96   1/1     Running     1          4d4h
+hr-app-7996699d47-z7f9x   1/1     Running     1          4d4h
+messaging                 1/1     Running     1          5d3h
+nginx                     1/1     Running     1          4d16h
+nginx-cm                  1/1     Running     1          4d16h
+nginx-opt                 1/1     Running     1          5d2h
+nginx-sec                 1/1     Running     1          4d16h
+nginx-test                1/1     Running     1          5d2h
+nginx1                    1/1     Running     1          5d4h
+nginx2                    1/1     Running     1          5d4h
+[root@master ~]# kubectl exec busybox -n test -- /bin/sh -c "cp /etc/passwd  /etc/foo/"
+# 去pod所在的节点
+[root@slave ~]# cd /etc/foo/
+[root@slave foo]# ls
+passwd
+[root@slave foo]# cat passwd
+root:x:0:0:root:/root:/bin/sh
+daemon:x:1:1:daemon:/usr/sbin:/bin/false
+bin:x:2:2:bin:/bin:/bin/false
+sys:x:3:3:sys:/dev:/bin/false
+sync:x:4:100:sync:/bin:/bin/sync
+mail:x:8:8:mail:/var/spool/mail:/bin/false
+www-data:x:33:33:www-data:/var/www:/bin/false
+operator:x:37:37:Operator:/var:/bin/false
+nobody:x:65534:65534:nobody:/home:/bin/false
+```
+
+Create a pod with image nginx called nginx-1 and expose its port 80.(创建一个叫nginx-1的 nginx pod，并暴露80端口。)
+
+Get service's ClusterIP, create a temp busybox-1 pod and 'hit' that IP with wget.(拿到那个svc的clusterip，创建一个临时的busybox-1的pod，并wget那个ip)
+
+Convert the ClusterIP to NodePort for the same service and find the NodePort. Hit the service(create temp busybox pod) using Node's IP and Port.(转换clusterip到nodeport并找到那个nodeport。)
