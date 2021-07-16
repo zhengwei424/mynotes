@@ -1,0 +1,183 @@
+1、前置条件：
+主从节点版本尽量一致
+
+搭建步骤：
+
+1、master节点上创建主从复制账号
+create user 'repl'@'192.168.8.%' identified by 'sGeY0fsSRI%g';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'192.168.8.%';
+
+
+2、查询master节点GTID
+
+show global variables like 'gtid_%';
+
+gtid_executed: 纪录到bin log中的事务GTID编号
+gtid_purged: bin log中被移除的事务GTID编号
+
+配置GTID主从复制的2个步骤：
+
+1. 备份master数据，记录`gtid_executed`值。
+2. 在slave中导入数据，配置`gtid_purged`值（对应master的`gtid_executed`）。
+
+而开启了GTID模式，使用mysqldump导出数据，**会自动生成步骤2中设置GTID的sql**：
+
+master > show global variables like 'gtid_executed';
++---------------+-------------------------------------------+
+| Variable_name | Value                                     |
++---------------+-------------------------------------------+
+| gtid_executed | 9a511b7b-7059-11e2-9a24-08002762b8af:1-13 |
++---------------+-------------------------------------------+
+
+master > show global variables like 'gtid_purged';
++---------------+------------------------------------------+
+| Variable_name | Value                                    |
++---------------+------------------------------------------+
+| gtid_purged   | 9a511b7b-7059-11e2-9a24-08002762b8af:1-2 |
++---------------+------------------------------------------+
+
+
+3、导出master节点数据：
+
+
+master > mysqldump -uroot -p123456 -A --master-data=2 --single-transaction -R -E --triggers >/soft/full2.sql
+master > /usr/bin/mysqldump --all-databases --single-transaction --triggers --routines --user=root -p > /soft/dump.sql
+
+
+4、slav中清空GTID
+
+
+# rest master可以清空gtid
+slave1 > reset master;
+
+
+# 查询gtid_executed是否为空
+slave1 > show global variables like 'gtid_executed';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_executed |       |
++---------------+-------+
+
+# 查询gtid_purged是否为空
+slave1 > show global variables like 'gtid_purged';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| gtid_purged   |       |
++---------------+-------+
+
+
+
+
+5、slave中导入数据
+
+slave1 > source dump.sql;
+
+# 验证gtid_executed是否正确
+slave1 > show global variables like 'gtid_executed';
++---------------+-------------------------------------------+
+| Variable_name | Value                                     |
++---------------+-------------------------------------------+
+| gtid_executed | 9a511b7b-7059-11e2-9a24-08002762b8af:1-13 |
++---------------+-------------------------------------------+
+
+# 验证gtid_purged是否正确
+slave1 > show global variables like 'gtid_purged';
++---------------+-------------------------------------------+
+| Variable_name | Value                                     |
++---------------+-------------------------------------------+
+| gtid_purged   | 9a511b7b-7059-11e2-9a24-08002762b8af:1-13 |
++---------------+-------------------------------------------+-
+
+
+
+
+6、使用`change master to`配置slave
+
+
+# 配置master复制账号
+slave1 > CHANGE MASTER TO
+  MASTER_HOST='192.168.8.10',
+  MASTER_USER='repl',
+  MASTER_PASSWORD='sGeY0fsSRI%g',
+  MASTER_PORT=3306,
+  MASTER_LOG_FILE='mysql-bin.000003',
+  MASTER_LOG_POS=948,
+  MASTER_CONNECT_RETRY=10;
+
+ 注：如果需要修改
+
+ reset slave;
+
+# 开启slave
+slave1 > start slave;
+
+
+
+
+
+
+半同步复制
+
+1、确保主库控制半同步参数开启：
+mysql> show variables like 'rpl_%';
+
++-------------------------------------------+------------+
+| Variable_name                             | Value      |
++-------------------------------------------+------------+
+| rpl_read_size                             | 8192       |
+| rpl_semi_sync_master_enabled              | ON         |
+| rpl_semi_sync_master_timeout              | 10000      |
+| rpl_semi_sync_master_trace_level          | 32         |
+| rpl_semi_sync_master_wait_for_slave_count | 1          |
+| rpl_semi_sync_master_wait_no_slave        | ON         |
+| rpl_semi_sync_master_wait_point           | AFTER_SYNC |
+| rpl_stop_slave_timeout                    | 31536000   |
++-------------------------------------------+------------+
+
+
+rpl_semi_sync_master_wait_point参数用来控制半同步复制的行为：
+AFTER_SYNC：默认值
+AFTER_COMMIT
+需 要 配 置 的 系 统 参 数 包 括 ： rpl_semi_sync_master_enabled：
+在主库配置，确保主库的半同步复制功能 开启
+rpl_semi_sync_master_timeout：
+配置主库等待多少毫秒时间来保证接收备库的确认消息，当超过这个时间时，半同步变成异步方式
+ rpl_semi_sync_slave_enabled：在从库配置，确保从库的半同步复制功能开启
+
+
+2、半同步复制是通过插件的方式建立，要分别在主库和从库安装一个插件前 提 条 件 ： 5.5版本及以上have_dynamic_loading参数必须是YES代表可以安装插件并动态加载
+事先建立好异步复制关系相关的插件安装文件会在plugin_dir文件夹下，并以semisync_master和semisync_slave名字打头
+
+
+主库上安装插件（直接在mysql里执行）：
+INSTALL PLUGIN rpl_semi_sync_master SONAME 'semisync_master.so';
+
+
+
+在每个从库上安装插件（直接在mysql里执行）：
+INSTALL PLUGIN rpl_semi_sync_slave SONAME 'semisync_slave.so';
+
+
+
+查看插件的安装情况：
+mysql> SELECT PLUGIN_NAME, PLUGIN_STATUS FROM INFORMATION_SCHEMA.PLUGINS WHERE PLUGIN_NAME LIKE '%semi%';
++----------------------+---------------+
+| PLUGIN_NAME          | PLUGIN_STATUS |
++----------------------+---------------+
+| rpl_semi_sync_master | ACTIVE        |
++----------------------+---------------+
+
+在主库上开启半同步复制：
+SET GLOBAL rpl_semi_sync_master_enabled = 1;
+SET GLOBAL rpl_semi_sync_master_timeout = N;                 ##N是毫秒，默认是10000，代表10秒
+在备库上开启半同步复制：
+mysql> SET GLOBAL rpl_semi_sync_slave_enabled =1;
+Query OK, 0 rows affected (0.00 sec)
+
+show variables like 'rpl_%';
+
+在备库上重启slave进程:
+STOP SLAVE;
+START SLAVE;
