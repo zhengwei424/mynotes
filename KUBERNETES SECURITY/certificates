@@ -1,0 +1,71 @@
+#### 证书解析
+##### openssl
+
+```bash
+root@controlplane:/etc/kubernetes/pki/etcd# openssl  x509  -in /etc/kubernetes/pki/etcd/server.crt  -noout -text
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number: 85249586553967514 (0x12ede0c1bcc539a)
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN = etcd-ca # 发行者
+        Validity # 证书有效期
+            Not Before: Sep  1 14:32:34 2021 GMT
+            Not After : Sep  1 14:32:35 2022 GMT
+        Subject: CN = controlplane
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:a7:1d:91:30:cf:ab:a7:46:53:2f:ae:2e:b0:0e:
+                    d6:9e:39:95:4a:6a:3b:f4:ff:c9:f2:8e:4f:b8:57:
+                    a4:6d:9a:a3:4c:74:dd:20:41:b4:79:1d:02:4f:34:
+                    13:6d:5b:b5:9f:1d:d5:60:1c:c3:f3:f2:0b:e6:02:
+                    5a:d8:86:60:b0:34:c2:39:e3:96:50:4c:7f:4a:58:
+                    93:f5:9b:b5:1d:9e:93:7c:65:33:bd:ee:3c:21:4c:
+                    ee:6f:4b:41:a4:df:e3:a7:bc:e1:3f:51:c1:f4:72:
+                    85:ec:dd:02:8e:1b:2c:90:66:fa:27:5c:70:b6:b7:
+                    a9:60:c3:f0:44:ec:b8:13:23:9e:7a:e7:9e:6f:f8:
+                    b3:e7:49:cf:60:af:44:25:47:9b:31:39:63:d9:65:
+                    b2:45:e9:8d:c0:72:5a:65:31:60:3f:e3:4f:24:dc:
+                    cb:44:66:63:93:f9:4e:78:61:31:69:a0:f3:5a:67:
+                    01:fa:79:cb:ae:0e:35:b6:61:67:a1:2f:fc:21:7e:
+                    12:ff:05:73:42:d2:4f:62:12:2e:23:c4:08:ef:49:
+                    91:fe:8f:ee:f4:82:96:4a:5b:12:d4:09:ab:7c:8f:
+                    03:ff:af:bd:c6:ff:c1:55:e9:41:38:9e:12:a5:12:
+                    bc:dd:8b:7c:be:00:d8:b0:a9:a8:fc:64:a7:41:a5:
+                    89:37
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Key Usage: critical
+                Digital Signature, Key Encipherment
+            X509v3 Extended Key Usage:
+                TLS Web Server Authentication, TLS Web Client Authentication
+            X509v3 Authority Key Identifier:
+                keyid:E1:88:44:B7:72:06:E2:3E:68:FE:8E:B9:2B:B2:BE:14:F0:54:8A:B3
+
+            X509v3 Subject Alternative Name:
+                DNS:controlplane, DNS:localhost, IP Address:10.31.35.6, IP Address:127.0.0.1, IP Address:0:0:0:0:0:0:0:1
+    Signature Algorithm: sha256WithRSAEncryption
+         8c:64:72:0a:7c:28:5f:72:30:1e:65:65:20:4c:51:81:87:b6:
+         5e:1b:cd:48:71:c5:2b:3f:44:c6:e2:f6:36:a5:23:89:31:4d:
+         8d:40:e4:2d:4b:f5:d0:5c:c5:71:d7:b9:d5:44:6e:f8:bc:2d:
+         2d:ea:cb:2c:05:ad:82:a6:4d:8c:75:60:fd:f6:51:47:06:43:
+         7b:de:6d:f9:86:00:23:d5:e0:9e:8a:eb:07:7c:cc:3c:8f:c9:
+         ee:f1:0a:bc:fd:67:b6:3a:13:81:08:66:f8:bd:71:e6:52:44:
+         3e:a5:9e:84:88:30:1b:9a:c5:c1:eb:27:30:9e:73:64:b2:3b:
+         7e:46:9e:a1:48:f4:92:a7:ac:d5:bc:2f:44:5b:dd:86:4e:ba:
+         d1:94:47:36:6c:3d:1f:39:c4:46:6c:ee:12:1a:92:b9:42:b0:
+         a3:fc:da:e1:44:1d:c5:3a:ef:27:2c:54:58:b6:ca:6d:ab:e1:
+         ba:32:61:6f:48:19:13:5d:1d:07:73:58:c3:40:98:fa:ca:90:
+         f8:dd:20:58:17:28:4f:43:fe:f7:e7:fa:54:7d:23:02:be:55:
+         c6:8c:6c:44:3d:b6:86:e7:1d:6b:c1:36:86:0a:cd:cc:ec:d5:
+         d1:c4:1d:11:b0:5e:99:34:79:b8:72:b0:7e:72:33:64:15:ce:
+         d1:76:6a:c5
+```
+##### openssl
+
+```bash
+The command blow:
+cfssl-certinfo -cert  <file with .crt or .pem>
+```

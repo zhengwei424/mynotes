@@ -3,7 +3,7 @@ NOte: This is not recommended in a production environment. This is only for lenr
 1. create a file with user details locally at /tmp/users/user-details.csv
 ```bash
 # User File Contents
-password1,user1,u0001
+password1,user1,u0001,group1
 password2,user2,u0002
 password3,user3,u0003
 password4,user4,u0004
