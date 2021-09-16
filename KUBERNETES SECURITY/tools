@@ -1,0 +1,41 @@
+#### seccomp
+```text
+seccomp 是 security computing mode 安全计算模式的简称
+seccomp（安全计算模式的缩写）是 Linux 内核中的计算机安全工具。 seccomp 允许进程单向转换到“安全”状态，在这种状态下它不能对已经打开的文件描述符进行任何系统调用，除了 exit()、sigreturn()、read() 和 write()。 如果它尝试任何其他系统调用，内核将使用 SIGKILL 或 SIGSYS 终止进程。从这个意义上说，它不会虚拟化系统资源，而是将进程与它们完全隔离。
+
+seccomp 模式是通过使用 PR_SET_SECCOMP 参数的 prctl(2) 系统调用启用的，或者（自 Linux 内核 3.17[3] 起）通过 seccomp(2) 系统调用启用。 [4] seccomp 模式过去是通过写入文件 /proc/self/seccomp 来启用的，但是为了支持 prctl()，这个方法被移除了。[5] 在某些内核版本中，seccomp 禁用 RDTSC x86 指令，该指令返回自开机以来经过的处理器周期数，用于高精度计时。 [6]
+
+seccomp-bpf 是 seccomp[7] 的扩展，它允许使用使用伯克利数据包过滤器规则实现的可配置策略过滤系统调用。 它被 OpenSSH 和 vsftpd 以及 Chrome OS 和 Linux 上的 Google Chrome/Chromium 网络浏览器使用。 [8] （在这方面，seccomp-bpf 实现了与较旧的 systrace 类似的功能，但具有更大的灵活性和更高的性能——Linux 似乎不再支持它。）
+
+有些人认为 seccomp 可与 OpenBSD 承诺(2) 和 FreeBSD capsicum(4) 相媲美。
+```
+
+```bash
+zhengwei@ubuntu:~$ sudo grep -i seccomp /boot/config-$(uname -r)
+CONFIG_HAVE_ARCH_SECCOMP=y
+CONFIG_HAVE_ARCH_SECCOMP_FILTER=y
+CONFIG_SECCOMP=y  #
+CONFIG_SECCOMP_FILTER=y
+# CONFIG_SECCOMP_CACHE_DEBUG is not set
+```
+seccomp由3种工作模式:
+1. mode 0表示禁用seccomp;
+2. mode 1 为strict模式，只允许使用4种syscalls分别是read(),write(),exit(),sigreturn()
+3. mode 2 为filter模式，SECCOMP_MODE_FILTER. Using that mode, processes can specify which system calls are permitted
+
+```bash
+zhengwei@ubuntu:~$ sudo docker run -it --rm docker/whalesay /bin/bash
+root@8a02f10b7e10:/cowsay#
+root@8a02f10b7e10:/cowsay#
+root@8a02f10b7e10:/cowsay# date -s "19 APR 2012 22:00:00"
+date: cannot set date: Operation not permitted
+Thu Apr 19 22:00:00 UTC 2012
+root@8a02f10b7e10:/cowsay# ps -ef
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0  0 02:59 pts/0    00:00:00 /bin/bash
+root          17       1  0 03:00 pts/0    00:00:00 ps -ef
+root@8a02f10b7e10:/cowsay# grep Seccomp /proc/1/status
+Seccomp:	2  # 意味着seccomp在容器中已经实现
+Seccomp_filters:	1
+root@8a02f10b7e10:/cowsay#
+```
