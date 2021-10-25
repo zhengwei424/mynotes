@@ -1,0 +1,73 @@
+https://www.cnblogs.com/Cherie/p/3309456.html
+```bash
+# 备份若干库
+mysqldump -u<user> -p<password> --database [database1 database2 ...] > xxx.sql
+
+# 导出某个库的若干表
+mysqldump -u<user> -p<password> database1 table1 table2 ... > xxx.sql
+
+# 压缩备份
+mysqldump -u<user> -p<password> database1 table1 table2 ... | gzip > xxx.sql.gz
+
+
+options：
+-d 只导数据结构，不导数据
+-t 只导数据，不导数据结构
+-q 不缓冲查询，直接导出到标准输出
+--add-locks 导出过程锁表，完成后解锁（默认）
+--default-character-set=gb2312 设置字符集
+--add-drop-table 备份时自动添加drop table语句（默认），避免手动删库还原数据
+
+
+
+
+
+# 恢复到某个库
+mysql -u<user> -p<password> db1 < xxx.sql
+或
+mysql> use db1;
+mysql> source <path>/xxx.sql;
+
+
+
+```
+
+二、增量备份
+小量的数据库可以每天进行完整备份，因为这也用不了多少时间，但当数据库很大时，就不太可能每天进行一次完整备份了，这时候就可以使用增量备份。增量备份的原理就是使用了mysql的binlog志。
+
+
+
+1、首先做一次完整备份：
+
+mysqldump -h10.6.208.183 -utest2 -p123  -P3310 --single-transaction  --master-data=2  test>test.sql这时候就会得到一个全备文件test.sql
+
+在sql文件中我们会看到：
+-- CHANGE MASTER TO MASTER_LOG_FILE='bin-log.000002', MASTER_LOG_POS=107;是指备份后所有的更改将会保存到bin-log.000002二进制文件中。
+2、在test库的t_student表中增加两条记录，然后执行flush logs命令。这时将会产生一个新的二进制日志文件bin-log.000003，bin-log.000002则保存了全备过后的所有更改，既增加记录的操作也保存在了bin-log.00002中。
+
+3、再在test库中的a表中增加两条记录，然后误删除t_student表和a表。a中增加记录的操作和删除表a和t_student的操作都记录在bin-log.000003中。
+
+
+
+三、恢复
+1、首先导入全备数据
+
+mysql -h10.6.208.183 -utest2 -p123  -P3310 < test.sql，也可以直接在mysql命令行下面用source导入
+
+2、恢复bin-log.000002
+
+   mysqlbinlog bin-log.000002 |mysql -h10.6.208.183 -utest2 -p123  -P3310
+
+3、恢复部分 bin-log.000003
+
+   在general_log中找到误删除的时间点，然后更加对应的时间点到bin-log.000003中找到相应的position点，需要恢复到误删除的前面一个position点。
+
+可以用如下参数来控制binlog的区间
+
+--start-position 开始点 --stop-position 结束点
+
+--start-date 开始时间  --stop-date  结束时间
+
+找到恢复点后，既可以开始恢复。
+
+  mysqlbinlog mysql-bin.000003 --stop-position=208 |mysql -h10.6.208.183 -utest2 -p123  -P3310

@@ -1,3 +1,25 @@
+#### AppArmor --> restrict a container`s access to resources
+
+```bash
+使用该工具前需确认：
+1. kubernetes版本(kubelet)≥v1.4
+kubectl get nodes -o=jsonpath=$'{range .items[*]}{@.metadata.name}: {@.status.nodeInfo.kubeletVersion}\n{end}'
+2. AppArmor 内核模块已启用
+root@controlplane:/# cat /sys/module/apparmor/parameters/enabled
+Y
+
+# 自定义配置文件目录
+/etc/apparmor.d/
+# 加载文件,如：文件为frontend
+apparmor_parser -q /etc/apparmor.d/frontend
+# 确认文件加载成功
+aa-status
+# 为pod配置annotations，以及最小权限的serviceaccount(不包含default)
+metadata:
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/nginx: localhost/restricted-frontend #Apply profile 'restricted-fronend' on 'nginx' container
+```
+
 #### seccomp
 ```text
 seccomp 是 security computing mode 安全计算模式的简称
@@ -39,3 +61,15 @@ Seccomp:	2  # 意味着seccomp在容器中已经实现
 Seccomp_filters:	1
 root@8a02f10b7e10:/cowsay#
 ```
+
+#### trivy
+
+```bash
+用法
+trivy --help
+
+查看镜像或者镜像文件(tar)漏洞
+trivy image -s 'CRITICAL' image:tag
+```
+
+#### falco
