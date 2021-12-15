@@ -21,3 +21,20 @@ go mod tidy
 go mod vendor
 make build
 ```
+
+# ubuntu中goland无法输入中文的问题
+```
+# 1.进入goland安装目录中bin目录下，在goland.sh脚本中添加
+根据自己当前设置的输入法管理工具设置，如ibus或者fcitx等
+export XMODIFIERS="@im=fcitx"
+export GTK_IM_MODULE="fcitx"
+export QT_IM_MODULE="fcitx"
+
+# 2.启动goland，继续设置
+help->Edit Custom VM Options
+添加-Drecreate.x11.input.method=true
+重启IDE
+
+# 3.解决ubuntu安装搜狗输入法之后，输入栏一直固定在左下角问题
+搜狗输入法设置——》外观——》取消勾选“候选窗口跟随光标”
+```
