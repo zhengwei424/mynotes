@@ -1,0 +1,1 @@
+configmap挂载之后，权限为readonly，即使文件权限为777(8进制),（defaultmode为511（10进制))???
