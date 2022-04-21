@@ -40,3 +40,10 @@ pidstat -u 5 1：观察哪个进程%wait较高，同时%CPU也较高
 大量进程case：
 pidstat -u 5 1：观察那些%wait较高的进程是否有很多
 ```
+
+#### 路由
+```powershell
+@echo off
+route add 10.123.0.0/16 192.168.2.126
+route delete 0.0.0.0 192.168.2.126
+```
