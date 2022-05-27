@@ -8,7 +8,6 @@ RFC vxlan
 
 # Atom markdown插件
 增强预览：markdown-preview-plus
-同步滚动：markdown-scroll-sync
 代码增强：language-markdown
 图片粘贴：markdown-image-paste
 表格编辑：markdown-table-editor
