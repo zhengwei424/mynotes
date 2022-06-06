@@ -18,3 +18,17 @@ localStorage.clear() // 清空所有
 二、写在CSS样式表中，这种情况使用 document.getElementById('xxx').style.width是获取不到的
 
 　　应使用 document.getElementById('xxx').currentStyle.width 来获取
+
+
+#### export
+##### 分别暴露
+```javascript
+export const allReducer = .......
+```
+import不能使用自定义名称，需要加大括号
+import { allReducer } from .....
+##### 默认暴露
+```javascript
+export default {}
+```
+由于只暴露一个，所有允许使用自定义名称，且导入时不用加大括号

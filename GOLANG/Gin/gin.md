@@ -1,3 +1,23 @@
+#### gin项目目录结构
+
+
+#### https证书生成及使用
+```bash
+$ openssl genrsa -out server.key 2048
+$ openssl req -new -x509 -key server.key -out server.pem -days 3650
+
+zhengwei@ubuntu:~/goprojects/backend/ssl$ ls
+server.key  server.pem
+
+gin中启用https：
+r.RunTLS(":9090", "ssl/server.pem", "ssl/server.key")
+```
+
+#### JWT(JSON Web Token)
+JWT全称JSON Web Token是一种跨域认证解决方案，属于一个开放的标准，它规定了一种Token实现方式，目前多用于前后端分离项目和OAuth3.0业务场景下
+JWT原理：https://www.jb51.net/article/244767.htm
+gin中使用JWT: https://www.jb51.net/article/244766.htm
+
 #### 响应数据
 ##### 使用结构体返回数据
 ```go
