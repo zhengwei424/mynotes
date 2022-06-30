@@ -5,9 +5,11 @@
 ```bash
 $ openssl genrsa -out server.key 2048
 $ openssl req -new -x509 -key server.key -out server.pem -days 3650
-
 zhengwei@ubuntu:~/goprojects/backend/ssl$ ls
 server.key  server.pem
+
+或 golang标准库自带程序生成，默认文件名为cert.pem和key.pem
+go run /home/zhengwei/go/go1.17.3/src/crypto/tls/generate_cert.go --host=192.168.10.168 --duration='87600h0m0s'
 
 gin中启用https：
 r.RunTLS(":9090", "ssl/server.pem", "ssl/server.key")
